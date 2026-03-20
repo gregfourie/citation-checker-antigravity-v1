@@ -1,0 +1,106 @@
+'use client'
+
+import { ProcessedCitation } from '@/app/actions';
+import { formatCitationDisplay } from '@/lib/extractor';
+
+interface CertificateProps {
+  citations: ProcessedCitation[];
+  onBack: () => void;
+}
+
+export default function Certificate({ citations, onBack }: CertificateProps) {
+  const total = citations.length;
+  const getCount = (tiers: string[]) => citations.filter(c => c.tier && tiers.includes(c.tier)).length;
+  
+  const exact = getCount(['EXACT_MATCH']);
+  const partial = getCount(['PARTIAL_MATCH']);
+  const accuracy = total > 0 ? Math.round(((exact + partial) / total) * 100) : 0;
+  
+  const discrepancies = citations.filter(c => c.result?.year_discrepancy || c.result?.status === 'mismatch_resolved');
+
+  return (
+    <div className="card" id="certificate-print-area" style={{ background: '#fff', color: '#000' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <h2 style={{ fontFamily: 'Source Serif 4, serif', margin: 0, color: '#000' }}>Certificate of Accuracy</h2>
+        <div className="no-print">
+          <button onClick={() => window.print()} style={{ marginRight: '12px' }}>Print / Save PDF</button>
+          <button className="secondary-button" onClick={onBack}>Back to Auditor</button>
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          body * { visibility: hidden; }
+          #certificate-print-area, #certificate-print-area * { visibility: visible; }
+          #certificate-print-area { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; padding: 0; margin: 0; }
+          .no-print { display: none !important; }
+        }
+      `}} />
+
+      <div style={{ marginBottom: '32px' }}>
+        <h3 style={{ color: '#000' }}>1. Executive Summary</h3>
+        <p>Total Citations Audited: <strong>{total}</strong></p>
+        <p>Overall Accuracy Score: <strong style={{color: accuracy > 80 ? 'green' : accuracy > 50 ? 'orange' : 'red'}}>{accuracy}%</strong></p>
+      </div>
+
+      <div style={{ marginBottom: '32px' }}>
+        <h3 style={{ color: '#000' }}>2. Confidence Breakdown</h3>
+        <ul style={{ paddingLeft: '20px' }}>
+          <li>EXACT MATCH (Verified): {exact}</li>
+          <li>PARTIAL MATCH (Likely Match): {partial}</li>
+          <li>POTENTIAL MATCH (Requires Manual Check): {getCount(['POTENTIAL_MATCH'])}</li>
+          <li>CITED ELSEWHERE (Not Directly on SAFLII): {getCount(['CITED_IN_OTHER_CASES'])}</li>
+          <li>NOT FOUND: {getCount(['NOT_FOUND'])}</li>
+        </ul>
+      </div>
+
+      <div style={{ marginBottom: '32px' }}>
+        <h3 style={{ color: '#000' }}>3. Discrepancies Detected</h3>
+        {discrepancies.length > 0 ? (
+          <ul style={{ paddingLeft: '20px' }}>
+            {discrepancies.map(d => (
+              <li key={d.id} style={{ marginBottom: '8px' }}>
+                <strong>{formatCitationDisplay(d)}</strong>: 
+                {d.result?.year_discrepancy ? ` Year discrepancy (Doc: ${d.result.year_discrepancy.document}, SAFLII: ${d.result.year_discrepancy.saflii}). ` : ''}
+                {d.result?.status === 'mismatch_resolved' ? ` Citation mismatch resolved by party name search.` : ''}
+              </li>
+            ))}
+          </ul>
+        ) : <p>No major discrepancies detected.</p>}
+      </div>
+
+      <div style={{ marginBottom: '32px' }}>
+        <h3 style={{ color: '#000' }}>4. Citation Verification Log</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+          <thead>
+            <tr>
+              <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5', color: '#000' }}>Citation</th>
+              <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5', color: '#000' }}>Status</th>
+              <th style={{ border: '1px solid #ccc', padding: '8px', background: '#f5f5f5', color: '#000' }}>SAFLII Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            {citations.map(c => (
+              <tr key={c.id}>
+                <td style={{ border: '1px solid #ccc', padding: '8px', color: '#000' }}>{formatCitationDisplay(c)}</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px', color: '#000' }}>{c.tier?.replace(/_/g, ' ')}</td>
+                <td style={{ border: '1px solid #ccc', padding: '8px', color: '#000' }}>
+                  {c.result?.url ? <a href={c.result.url} target="_blank">{c.result.saflii_citation || 'Link'}</a> : 'N/A'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: '2px solid #EEE' }}>
+        <h3 style={{ color: '#000' }}>Declaration</h3>
+        <p>
+          This Certificate of Accuracy was generated by the automated Citation Checker on <strong>{new Date().toLocaleDateString()}</strong>.
+          The verification process involves searching the SAFLII database and matching party names and citation indexes. 
+          While high-confidence matches are highly reliable, manual review is recommended for partial or potential matches.
+        </p>
+      </div>
+    </div>
+  );
+}
