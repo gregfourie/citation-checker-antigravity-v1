@@ -81,15 +81,33 @@ export interface SafliiResult {
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-async function fetchHtml(url: string, useProxy: boolean = true): Promise<{ status: number; html: string }> {
-  const fetchUrl = useProxy ? `${PROXY_URL}${encodeURIComponent(url)}` : url;
-  try {
-    const res = await fetch(fetchUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+async function fetchHtml(url: string, useProxy: boolean = false): Promise<{ status: number; html: string }> {
+  if (!useProxy) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+      });
+      // Accept 200 and 404; if Vercel IPs get 403 or 410, it falls through to proxy
+      if (res.status === 200 || res.status === 404) {
+        const html = await res.text();
+        return { status: res.status, html };
       }
-    });
+    } catch (err) {
+      // Direct fetch failed (e.g. connection refused), fall through to proxy
+    }
+  }
+
+  const fetchUrl = `${PROXY_URL}${encodeURIComponent(url)}`;
+  try {
+    const res = await fetch(fetchUrl);
     const html = await res.text();
+    // Guard against Google Apps Script throwing a 200 OK error page
+    if (html.includes('Exception: Address unavailable')) {
+      return { status: 502, html: '' };
+    }
     return { status: res.status, html };
   } catch (err) {
     return { status: 500, html: '' };
@@ -97,7 +115,7 @@ async function fetchHtml(url: string, useProxy: boolean = true): Promise<{ statu
 }
 
 async function checkDirectUrl(url: string): Promise<SafliiResult | null> {
-  const { status, html } = await fetchHtml(url, true);
+  const { status, html } = await fetchHtml(url);
   if (status === 200 && html && !html.includes('404 Not Found')) {
     const $ = cheerio.load(html);
     const title = $('title').text().trim() || $('h1').first().text().trim();
@@ -183,7 +201,7 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
   let searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(query)}&method=all&results=20`;
   
   await delay(1000);
-  let { status, html } = await fetchHtml(searchUrl, true);
+  let { status, html } = await fetchHtml(searchUrl);
   
   let $ = cheerio.load(html || '');
   let searchResults: any[] = [];
@@ -207,7 +225,7 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
   if (searchResults.length === 0 && partyB) {
     searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(partyB)}&method=all&results=20`;
     await delay(1000);
-    const fb = await fetchHtml(searchUrl, true);
+    const fb = await fetchHtml(searchUrl);
     if (fb.status === 200 && fb.html) {
       status = fb.status;
       html = fb.html;
