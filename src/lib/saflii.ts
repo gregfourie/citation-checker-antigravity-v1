@@ -41,9 +41,16 @@ export function resolveCourtCode(code: string): string {
 }
 
 export function extractPartyNames(display: string): [string | null, string | null] {
-  const match = display.match(/([A-Z][A-Za-z\s&()\-'.,\u2019]*?)\s+v\.?\s+([A-Z][A-Za-z\s&()\-'.,\u2019]*?)(?=\s*[\[\(]|\s*\d{4}|\s*SA\b|\s*BCLR\b|\s*SACR\b|\s*All\s|\s*ZA[A-Z]|\s*CCT|\s*,?\s*\d{4}|\s*$)/);
+  // Regex to match "Party A v Party B" avoiding greediness when multiple citations exist
+  // We use lookahead to ensure we stop before typical citation year/court patterns
+  const match = display.match(/([A-Z][A-Za-z\s&()\-'.,\u2019]*?)\s+v\.?\s+([A-Z][A-Za-z\s&()\-'.,\u2019]*?)(?=\s*[\[\(]|\s*\d{4}|\s*SA\b|\s*BCLR\b|\s*SACR\b|\s*ILJ\b|\s*All\s|\s*ZA[A-Z]|\s*CCT|\s*,?\s*\d{4}|\s*$)/);
   if (match) {
-    return [match[1].trim(), match[2].trim()];
+    let pA = match[1].trim();
+    let pB = match[2].trim();
+
+    pA = pA.replace(/^(\(?(?:CC|LAC|LC|SCA|HC|WLD|SA|BCLR)\)?|in|see)\s+/i, '');
+
+    return [pA, pB];
   }
   return [null, null];
 }

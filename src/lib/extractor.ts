@@ -12,6 +12,7 @@ export class CitationEngine {
     bclr: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sBCLR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
     sacr: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sSACR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
     all_sa: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sAll\\sSA\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
+    ilj: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s*(?:\\(?(\\d{4})\\)?)?\\s+(\\d*)\\s*\\(?ILJ\\)?\\s+(\\d+)(?:\\s*\\(([A-Z]+)\\))?`, 'g'),
     old_provincial: new RegExp(`([A-Z]${NPLIM}),?\\s(\\d{4})\\s(CPD|TPD|WLD|NPD|OPD|EPD|AD|SCA|DCLD|SECLD|NCHC|BCHC|ECD|NCD)\\s(\\d+)`, 'g'),
     neutral_zasca: new RegExp(`([A-Z]${NPLIM})\\s\\[(\\d{4})\\]\\sZASCA\\s(\\d+)`, 'g'),
     neutral_zacc: new RegExp(`([A-Z]${NPLIM})\\s\\[(\\d{4})\\]\\sZACC\\s(\\d+)`, 'g'),
@@ -30,9 +31,10 @@ export class CitationEngine {
     const found: CitationMatch[] = [];
     const seen = new Set<string>();
 
-    const lines = text.split('\n');
+    const normalizedText = text.replace(/([^\r\n])\r?\n([^\r\n])/g, '$1 $2');
+    const lines = normalizedText.split('\n');
     const orderedKeys = [
-      'standard_sa', 'bclr', 'sacr', 'all_sa', 'old_provincial',
+      'standard_sa', 'bclr', 'sacr', 'all_sa', 'ilj', 'old_provincial',
       'neutral_zasca', 'neutral_zacc', 'neutral_regional',
       'loose_sa',
     ];
@@ -114,6 +116,12 @@ export function formatCitationDisplay(match: CitationMatch): string {
     case 'bclr': return `${d[0]} ${d[1]} (${d[2]}) BCLR ${d[3]} (${d[4]})`;
     case 'sacr': return `${d[0]} ${d[1]} (${d[2]}) SACR ${d[3]} (${d[4]})`;
     case 'all_sa': return `${d[0]} ${d[1]} (${d[2]}) All SA ${d[3]} (${d[4]})`;
+    case 'ilj': {
+      const yearStr = d[1] ? ` (${d[1]})` : '';
+      const volStr = d[2] ? ` ${d[2]}` : '';
+      const courtStr = d[4] ? ` (${d[4]})` : '';
+      return `${d[0].trim()}${yearStr}${volStr} ILJ ${d[3]}${courtStr}`;
+    }
     case 'old_provincial': return `${d[0]} ${d[1]} ${d[2]} ${d[3]}`;
     case 'neutral_zasca': return `${d[0]} [${d[1]}] ZASCA ${d[2]}`;
     case 'neutral_zacc': return `${d[0]} [${d[1]}] ZACC ${d[2]}`;
