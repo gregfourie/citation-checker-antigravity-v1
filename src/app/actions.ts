@@ -19,22 +19,30 @@ export interface ProcessedCitation extends CitationMatch {
 }
 
 export async function parseDocument(formData: FormData): Promise<{ text: string, citations: CitationMatch[], error?: string }> {
-  const file = formData.get('file') as File;
-  if (!file) return { text: '', citations: [], error: 'No file provided' };
-
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     let extractedText = '';
-
-    if (file.name.endsWith('.pdf')) {
-      const data = await pdfParse(buffer);
-      extractedText = data.text;
-    } else if (file.name.endsWith('.docx')) {
-      const result = await mammoth.extractRawText({ buffer });
-      extractedText = result.value;
+    
+    // Check if the user pasted text directly
+    const textInput = formData.get('text') as string;
+    if (textInput?.trim()) {
+      extractedText = textInput;
     } else {
-      return { text: '', citations: [], error: 'Unsupported file format. Please upload PDF or DOCX.' };
+      // Otherwise, parse the file
+      const file = formData.get('file') as File;
+      if (!file) return { text: '', citations: [], error: 'No file or text provided' };
+
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      if (file.name.endsWith('.pdf')) {
+        const data = await pdfParse(buffer);
+        extractedText = data.text;
+      } else if (file.name.endsWith('.docx')) {
+        const result = await mammoth.extractRawText({ buffer });
+        extractedText = result.value;
+      } else {
+        return { text: '', citations: [], error: 'Unsupported file format. Please upload PDF or DOCX.' };
+      }
     }
 
     const citations = CitationEngine.extractCitations(extractedText);

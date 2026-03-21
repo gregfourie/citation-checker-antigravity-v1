@@ -39,7 +39,7 @@ export function resolveCourtCode(code: string): string {
 }
 
 export function extractPartyNames(display: string): [string | null, string | null] {
-  const match = display.match(/([A-Z][A-Za-z\s&()]*?)\s+v\.?\s+([A-Z][A-Za-z\s&()]*?)(?=\s*[\[\(]|\s*\d{4}|\s*SA\b|\s*BCLR\b|\s*SACR\b|\s*All\s|\s*ZA[A-Z]|\s*CCT|\s*,?\s*\d{4}|\s*$)/);
+  const match = display.match(/([A-Z][A-Za-z\s&()\-'.,\u2019]*?)\s+v\.?\s+([A-Z][A-Za-z\s&()\-'.,\u2019]*?)(?=\s*[\[\(]|\s*\d{4}|\s*SA\b|\s*BCLR\b|\s*SACR\b|\s*All\s|\s*ZA[A-Z]|\s*CCT|\s*,?\s*\d{4}|\s*$)/);
   if (match) {
     return [match[1].trim(), match[2].trim()];
   }
@@ -239,6 +239,19 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
     let bestMatch: any = null;
     let bestYearDiscrepancy: any = null;
 
+    let expectedCourt = '';
+    if (['standard_sa', 'bclr', 'sacr', 'all_sa'].includes(ctype)) {
+      expectedCourt = resolveCourtCode(data[4]);
+    } else if (ctype === 'old_provincial') {
+      expectedCourt = resolveCourtCode(data[2]);
+    } else if (ctype === 'neutral_regional') {
+      expectedCourt = resolveCourtCode(data[2]);
+    } else if (ctype === 'neutral_zasca') {
+      expectedCourt = 'ZASCA';
+    } else if (ctype === 'neutral_zacc') {
+      expectedCourt = 'ZACC';
+    }
+
     if (partyA && partyB) {
       const docStr = `${partyA} v ${partyB}`.toLowerCase();
       const docStrNoV = `${partyA} ${partyB}`.toLowerCase(); // Compare purely names just in case SAFLII Title omits 'v' or 'and' etc.
@@ -248,14 +261,27 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
         
         const citationInUrl = extractCitationFromUrl(res.url);
         let resYear = null;
+        let resCourt : string | null = null;
         if (citationInUrl) {
-          const ym = citationInUrl.match(/\[(\d{4})\]/);
-          if (ym) resYear = ym[1];
+          const ym = citationInUrl.match(/\[(\d{4})\]\s+([A-Z]+)\s+(\d+)/);
+          if (ym) {
+             resYear = ym[1];
+             resCourt = ym[2];
+          } else {
+             const fallbackYm = citationInUrl.match(/\[(\d{4})\]/);
+             if (fallbackYm) resYear = fallbackYm[1];
+          }
         }
         let yearDiscrepancy = null;
         if (resYear) {
           if (resYear === docYear) score += 10;
           else yearDiscrepancy = { document: docYear, saflii: resYear };
+        }
+        
+        if (expectedCourt) {
+          if ((resCourt && expectedCourt === resCourt) || res.url.includes(`/${expectedCourt}/`)) {
+            score += 20;
+          }
         }
 
         if (score > bestScore) {
@@ -265,17 +291,48 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
         }
       }
     } else {
+      let maxScore = -1;
       for (const res of searchResults) {
         const citationInUrl = extractCitationFromUrl(res.url);
+        let currentScore = 50;
+        let resYear = null;
+        let resCourt = null;
+        
         if (citationInUrl) {
-          const ym = citationInUrl.match(/\[(\d{4})\]/);
+          const ym = citationInUrl.match(/\[(\d{4})\]\s+([A-Z]+)\s+(\d+)/);
           if (ym) {
-            if (ym[1] === docYear) { bestScore = 70; bestMatch = { ...res, citation: citationInUrl }; break; }
-            else { bestScore = 60; bestMatch = { ...res, citation: citationInUrl }; bestYearDiscrepancy = { document: docYear, saflii: ym[1] }; break; }
+             resYear = ym[1];
+             resCourt = ym[2];
+          } else {
+             const fallbackYm = citationInUrl.match(/\[(\d{4})\]/);
+             if (fallbackYm) resYear = fallbackYm[1];
           }
         }
+        
+        let yearDiscrepancy = null;
+        if (resYear) {
+           if (resYear === docYear) currentScore = 70;
+           else {
+             currentScore = 60;
+             yearDiscrepancy = { document: docYear, saflii: resYear };
+           }
+        }
+
+        if (expectedCourt) {
+          if ((resCourt && expectedCourt === resCourt) || res.url.includes(`/${expectedCourt}/`)) {
+            currentScore += 20;
+          }
+        }
+
+        if (currentScore > maxScore) {
+          maxScore = currentScore;
+          bestScore = currentScore;
+          bestMatch = { ...res, citation: citationInUrl };
+          bestYearDiscrepancy = yearDiscrepancy;
+        }
       }
-      if (!bestMatch) {
+
+      if (!bestMatch && searchResults.length > 0) {
          bestScore = 50;
          bestMatch = { ...searchResults[0], citation: extractCitationFromUrl(searchResults[0].url) };
       }
