@@ -8,7 +8,7 @@ if (typeof global.DOMPoint === 'undefined') {
 }
 
 import mammoth from 'mammoth';
-const pdfParse = require('pdf-parse');
+import PDFParser from 'pdf2json';
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
@@ -37,21 +37,13 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
         try {
-          const options = {
-            pagerender: async function(pageData: any) {
-              const textContent = await pageData.getTextContent();
-              let text = '';
-              for (let item of textContent.items) {
-                 text += item.str + ' ';
-              }
-              if (typeof pageData.cleanup === 'function') {
-                 pageData.cleanup();
-              }
-              return text + '\\n';
-            }
-          };
-          const data = await pdfParse(buffer, options);
-          extractedText = data.text;
+          const text = await new Promise<string>((resolve, reject) => {
+            const pdfParser = new PDFParser(null, true);
+            pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
+            pdfParser.on("pdfParser_dataReady", () => resolve(pdfParser.getRawTextContent().replace(/----------------Page \\(\\d+\\) Break----------------/g, '\\n')));
+            pdfParser.parseBuffer(buffer);
+          });
+          extractedText = text;
         } catch (err: any) {
           return { text: '', citations: [], error: 'PDF Parsing failed: ' + (err.message || err.toString()) };
         }
