@@ -8,9 +8,7 @@ if (typeof global.DOMPoint === 'undefined') {
 }
 
 import mammoth from 'mammoth';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+const pdfParse = require('pdf-parse');
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
@@ -37,21 +35,23 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
       const buffer = Buffer.from(arrayBuffer);
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
-        const loadingTask = pdfjsLib.getDocument({
-          data: new Uint8Array(buffer),
-          useSystemFonts: true,
-          disableFontFace: true,
-        });
-        const doc = await loadingTask.promise;
-        let text = '';
-        for (let i = 1; i <= doc.numPages; i++) {
-          const page = await doc.getPage(i);
-          const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(' ') + '\\n';
-          page.cleanup(); // Free up layout memory
+        try {
+          const options = {
+            pagerender: async function(pageData: any) {
+              const textContent = await pageData.getTextContent();
+              let text = '';
+              for (let item of textContent.items) {
+                 text += item.str + ' ';
+              }
+              pageData.cleanup(); // Free up layout memory
+              return text + '\\n';
+            }
+          };
+          const data = await pdfParse(buffer, options);
+          extractedText = data.text;
+        } catch (err: any) {
+          return { text: '', citations: [], error: 'PDF Parsing failed: ' + (err.message || err.toString()) };
         }
-        extractedText = text;
-        doc.destroy();
       } else if (file.name.endsWith('.docx')) {
         const result = await mammoth.extractRawText({ buffer });
         extractedText = result.value;
