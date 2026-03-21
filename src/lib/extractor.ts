@@ -1,4 +1,5 @@
-const NP = "[A-Za-z\\s&()\\-'.,]";
+const NP = "[A-Za-z\\s&()\\-',\u2018\u2019\u201C\u201D]"; // removed period!
+const NPLIM = `(?:${NP}|\\.(?!\\s)){1,85}?`;
 
 export interface CitationMatch {
   type: string;
@@ -7,15 +8,15 @@ export interface CitationMatch {
 
 export class CitationEngine {
   private static readonly PATTERNS: Record<string, RegExp> = {
-    standard_sa: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s(\\d{4})\\s\\((\\d+)\\)\\sSA\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
-    bclr: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s(\\d{4})\\s\\((\\d+)\\)\\sBCLR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
-    sacr: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s(\\d{4})\\s\\((\\d+)\\)\\sSACR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
-    all_sa: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s(\\d{4})\\s\\((\\d+)\\)\\sAll\\sSA\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
-    old_provincial: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?),?\\s(\\d{4})\\s(CPD|TPD|WLD|NPD|OPD|EPD|AD|SCA|DCLD|SECLD|NCHC|BCHC|ECD|NCD)\\s(\\d+)`, 'g'),
-    neutral_zasca: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s\\[(\\d{4})\\]\\sZASCA\\s(\\d+)`, 'g'),
-    neutral_zacc: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s\\[(\\d{4})\\]\\sZACC\\s(\\d+)`, 'g'),
-    neutral_regional: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s\\[(\\d{4})\\]\\s(ZA[A-Z]{2,8})\\s(\\d+)`, 'g'),
-    loose_sa: new RegExp(`([A-Z]${NP}+?v\\.?\\s${NP}+?)\\s(\\d{4})\\s+(\\d*)\\s*(?:SA|BCLR|SACR)\\s(\\d+)`, 'g'),
+    standard_sa: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sSA\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
+    bclr: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sBCLR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
+    sacr: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sSACR\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
+    all_sa: new RegExp(`([A-Z]${NPLIM}v\\.?\\s${NPLIM})\\s(\\d{4})\\s\\((\\d+)\\)\\sAll\\sSA\\s(\\d+)\\s\\(([A-Z]+)\\)`, 'g'),
+    old_provincial: new RegExp(`([A-Z]${NPLIM}),?\\s(\\d{4})\\s(CPD|TPD|WLD|NPD|OPD|EPD|AD|SCA|DCLD|SECLD|NCHC|BCHC|ECD|NCD)\\s(\\d+)`, 'g'),
+    neutral_zasca: new RegExp(`([A-Z]${NPLIM})\\s\\[(\\d{4})\\]\\sZASCA\\s(\\d+)`, 'g'),
+    neutral_zacc: new RegExp(`([A-Z]${NPLIM})\\s\\[(\\d{4})\\]\\sZACC\\s(\\d+)`, 'g'),
+    neutral_regional: new RegExp(`([A-Z]${NPLIM})\\s\\[(\\d{4})\\]\\s(ZA[A-Z]{2,8})\\s(\\d+)`, 'g'),
+    loose_sa: new RegExp(`([A-Z]${NPLIM})\\s(\\d{4})\\s+(\\d*)\\s*(?:SA|BCLR|SACR)\\s(\\d+)`, 'g'),
   };
 
   private static readonly FOOTNOTE_PATTERNS: Record<string, RegExp> = {

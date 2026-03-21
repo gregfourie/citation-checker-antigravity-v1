@@ -35,6 +35,7 @@ export default function Hopper({ onExtract, isExtracting }: HopperProps) {
 
       <div style={{ marginBottom: '24px', display: 'flex', gap: '16px' }}>
         <button 
+          type="button"
           onClick={() => setInputMode('file')}
           style={{ 
             background: inputMode === 'file' ? 'var(--forest)' : 'var(--cream)',
@@ -45,6 +46,7 @@ export default function Hopper({ onExtract, isExtracting }: HopperProps) {
           Upload Document
         </button>
         <button 
+          type="button"
           onClick={() => setInputMode('text')}
           style={{ 
             background: inputMode === 'text' ? 'var(--forest)' : 'var(--cream)',
