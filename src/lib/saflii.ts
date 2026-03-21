@@ -200,13 +200,13 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
   
   query = query.replace(/\bv\.\s/g, 'v ');
   
-  const safeQuery = query.replace(/&/g, 'and')
+  const cleanQuery = (q: string) => q.replace(/&/g, 'and')
     .replace(/\b(and\s+another|and\s+others|et\s+al)\b/gi, '')
-    .replace(/\([^)]+\)/g, '')
-    .replace(/\[[^\]]+\]/g, '')
-    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\bSA\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  const safeQuery = cleanQuery(query);
   
   let searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(safeQuery)}&method=all&results=20`;
   
@@ -232,15 +232,31 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
 
   if (status === 200 && html) parseResults();
 
+  // Fallback 1: Try Party A (Appellant is often unique, like "Aviation Union")
+  if (searchResults.length === 0 && partyA) {
+    const safeA = cleanQuery(partyA);
+    if (safeA.length > 3) {
+      searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(safeA)}&method=all&results=20`;
+      await delay(1000);
+      const fa = await fetchHtml(searchUrl);
+      if (fa.status === 200 && fa.html) {
+        $ = cheerio.load(fa.html);
+        parseResults();
+      }
+    }
+  }
+
+  // Fallback 2: Try Party B (Respondent is unique if Party A is "The State")
   if (searchResults.length === 0 && partyB) {
-    searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(partyB)}&method=all&results=20`;
-    await delay(1000);
-    const fb = await fetchHtml(searchUrl);
-    if (fb.status === 200 && fb.html) {
-      status = fb.status;
-      html = fb.html;
-      $ = cheerio.load(html);
-      parseResults();
+    const safeB = cleanQuery(partyB);
+    if (safeB.length > 3) {
+      searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(safeB)}&method=all&results=20`;
+      await delay(1000);
+      const fb = await fetchHtml(searchUrl);
+      if (fb.status === 200 && fb.html) {
+        $ = cheerio.load(fb.html);
+        parseResults();
+      }
     }
   }
 
