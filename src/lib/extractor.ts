@@ -1,4 +1,4 @@
-const NP = "[A-Za-z\\s&()\\-',\u2018\u2019\u201C\u201D]"; // removed period!
+const NP = "[A-Za-z0-9\\s&()\\-',\u2018\u2019\u201C\u201D]";
 const NPLIM = `(?:${NP}|\\.(?!\\s)){1,85}?`;
 
 export interface CitationMatch {

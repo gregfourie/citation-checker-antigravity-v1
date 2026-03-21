@@ -60,21 +60,44 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
   }
 }
 
+const verificationCache = new Map<string, Omit<ProcessedCitation, 'id'>>();
+
 export async function verifyCitations(citations: CitationMatch[]): Promise<ProcessedCitation[]> {
   const results: ProcessedCitation[] = [];
-  
-  // Verify sequentially to avoid hitting SAFLII too hard and respecting delay
-  for (let i = 0; i < citations.length; i++) {
-    const match = citations[i];
-    const safliiResult = await lookupCitation(match);
-    const tier = classifyConfidence(safliiResult.status, safliiResult.match_confidence, safliiResult.found_via);
+  const concurrencyLimit = 5;
+
+  for (let i = 0; i < citations.length; i += concurrencyLimit) {
+    const chunk = citations.slice(i, i + concurrencyLimit);
     
-    results.push({
-      ...match,
-      id: `cit-${i}-${Date.now()}`,
-      result: safliiResult,
-      tier
+    const chunkPromises = chunk.map(async (match, chunkIndex) => {
+      const globalIndex = i + chunkIndex;
+      const cacheKey = JSON.stringify({ type: match.type, data: match.data });
+      
+      if (verificationCache.has(cacheKey)) {
+        const cached = verificationCache.get(cacheKey)!;
+        return { ...cached, id: `cit-${globalIndex}-${Date.now()}` } as ProcessedCitation;
+      }
+
+      const safliiResult = await lookupCitation(match);
+      const tier = classifyConfidence(safliiResult.status, safliiResult.match_confidence, safliiResult.found_via);
+      
+      const processedCore = {
+        ...match,
+        result: safliiResult,
+        tier
+      };
+      
+      verificationCache.set(cacheKey, processedCore);
+      return { ...processedCore, id: `cit-${globalIndex}-${Date.now()}` } as ProcessedCitation;
     });
+
+    const chunkResults = await Promise.all(chunkPromises);
+    results.push(...chunkResults);
+    
+    // Brief delay between concurrent chunks to respect SAFLII limits
+    if (i + concurrencyLimit < citations.length) {
+      await new Promise(res => setTimeout(res, 500));
+    }
   }
   
   return results;
