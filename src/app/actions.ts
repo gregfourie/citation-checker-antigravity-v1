@@ -12,6 +12,8 @@ const pdfParse = require('pdf-parse');
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
+export const maxDuration = 60; // Maximize Vercel timeout for large PDFs
+
 export interface ProcessedCitation extends CitationMatch {
   id: string;
   result: SafliiResult | null;
