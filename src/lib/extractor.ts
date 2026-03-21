@@ -30,12 +30,13 @@ export class CitationEngine {
   };
 
   private static cleanPartyName(rawName: string): string {
-    const vMatch = rawName.match(/\s+v\.?\s+/);
-    if (!vMatch) return rawName;
+    const cleanedPrefix = rawName.replace(/^(?:Judgment\s+reported\s+as|See\s+also|See|In|Compare|Cf\.?)\s+/i, '').trim();
+    const vMatch = cleanedPrefix.match(/\s+v\.?\s+/);
+    if (!vMatch) return cleanedPrefix;
 
     const vIndex = vMatch.index!;
-    const partyA = rawName.substring(0, vIndex).trim();
-    const partyB = rawName.substring(vIndex + vMatch[0].length).trim();
+    const partyA = cleanedPrefix.substring(0, vIndex).trim();
+    const partyB = cleanedPrefix.substring(vIndex + vMatch[0].length).trim();
 
     const allowedLower = ['of', 'and', 'or', 'the', 'a', 'for', 'in', 'on', 'to', 'under', 't/a', 'de', 'van', 'der', 'le', 'la', 'du', 'di', 'mac', 'mc', 'op', 'te', 'ten', 'another', 'others', 'et', 'al'];
     const words = partyA.split(/\s+/);

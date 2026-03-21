@@ -148,15 +148,15 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
   const display = formatCitationDisplay(citationMatch);
   
   const [partyA, partyB] = extractPartyNames(display);
-  const docYear = data[1];
+  const docYear = data[2];
   
   const searchTrail: Array<{ source: string, result: string }> = [];
   let mismatchInfo: any = null;
 
   if (['neutral_zasca', 'neutral_zacc', 'neutral_regional'].includes(ctype)) {
-    const court = ctype === 'neutral_regional' ? data[2] : (ctype === 'neutral_zasca' ? 'ZASCA' : 'ZACC');
+    const court = ctype === 'neutral_regional' ? data[3] : (ctype === 'neutral_zasca' ? 'ZASCA' : 'ZACC');
     const safeCourt = resolveCourtCode(court);
-    const num = ctype === 'neutral_regional' ? data[3] : data[2];
+    const num = ctype === 'neutral_regional' ? data[4] : data[3];
     const directUrl = `${BASE_URL}/za/cases/${safeCourt}/${docYear}/${num}.html`;
     
     await delay(2000);
@@ -183,13 +183,18 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
         };
       }
     } else {
-      searchTrail.push({ source: 'SAFLII (direct)', result: 'Not found' });
+      searchTrail.push({ source: 'SAFLII (direct)', result: 'Not found (may be IP-blocked)' });
     }
   }
 
   let query = '';
   if (partyA && partyB) {
-    query = `${partyA} v ${partyB}`;
+    let courtCodeStr = '';
+    if (['neutral_zasca', 'neutral_zacc', 'neutral_regional'].includes(ctype)) {
+         const court = ctype === 'neutral_regional' ? data[3] : (ctype === 'neutral_zasca' ? 'ZASCA' : 'ZACC');
+         courtCodeStr = ` ${resolveCourtCode(court)}`;
+    }
+    query = `${partyA} v ${partyB}${courtCodeStr}`;
   } else {
     query = display;
   }
@@ -260,6 +265,18 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
     }
   }
 
+  // Fallback 3: For Neutral Citations, Search the exact code (e.g. "[2023] ZALCJHB 9")
+  if (searchResults.length === 0 && (ctype === 'neutral_regional' || ctype === 'neutral_zacc' || ctype === 'neutral_zasca')) {
+     const nCite = `"[${docYear}] ${data[2]} ${data[3]}"`;
+     searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(nCite)}&method=all&results=5`;
+     await delay(1000);
+     const fnc = await fetchHtml(searchUrl);
+     if (fnc.status === 200 && fnc.html) {
+       $ = cheerio.load(fnc.html);
+       parseResults();
+     }
+  }
+
   if (searchResults.length > 0) {
     let bestScore = 0;
     let bestMatch: any = null;
@@ -267,15 +284,15 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
 
     let expectedCourt = '';
     if (['standard_sa', 'bclr', 'sacr', 'all_sa'].includes(ctype)) {
-      expectedCourt = resolveCourtCode(data[4]);
+      expectedCourt = resolveCourtCode(data[5]);
     } else if (ctype === 'ilj') {
       expectedCourt = resolveCourtCode(data[5]);
     } else if (ctype === 'bllr') {
-      expectedCourt = resolveCourtCode(data[4]);
+      expectedCourt = resolveCourtCode(data[5]);
     } else if (ctype === 'old_provincial') {
-      expectedCourt = resolveCourtCode(data[2]);
+      expectedCourt = resolveCourtCode(data[5]);
     } else if (ctype === 'neutral_regional') {
-      expectedCourt = resolveCourtCode(data[2]);
+      expectedCourt = resolveCourtCode(data[3]);
     } else if (ctype === 'neutral_zasca') {
       expectedCourt = 'ZASCA';
     } else if (ctype === 'neutral_zacc') {
@@ -305,7 +322,12 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
         let yearDiscrepancy = null;
         if (resYear) {
           if (resYear === docYear) score += 10;
-          else yearDiscrepancy = { document: docYear, saflii: resYear };
+          else {
+             yearDiscrepancy = { document: docYear, saflii: resYear };
+             if (['neutral_zasca', 'neutral_zacc', 'neutral_regional'].includes(ctype)) {
+               score -= 40; // Strict penalty for mismatched neutral citation queries!
+             }
+          }
         }
         
         if (expectedCourt) {
