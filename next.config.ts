@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['canvas', 'encoding'],
+  serverExternalPackages: ['canvas', 'encoding', 'pdfjs-dist'],
   turbopack: {},
 };
 
