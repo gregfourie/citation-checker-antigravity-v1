@@ -259,6 +259,10 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
     let expectedCourt = '';
     if (['standard_sa', 'bclr', 'sacr', 'all_sa'].includes(ctype)) {
       expectedCourt = resolveCourtCode(data[4]);
+    } else if (ctype === 'ilj') {
+      expectedCourt = resolveCourtCode(data[5]);
+    } else if (ctype === 'bllr') {
+      expectedCourt = resolveCourtCode(data[4]);
     } else if (ctype === 'old_provincial') {
       expectedCourt = resolveCourtCode(data[2]);
     } else if (ctype === 'neutral_regional') {
