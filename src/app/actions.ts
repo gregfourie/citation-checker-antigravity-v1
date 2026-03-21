@@ -8,7 +8,9 @@ if (typeof global.DOMPoint === 'undefined') {
 }
 
 import mammoth from 'mammoth';
-import PDFParser from 'pdf2json';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
@@ -34,15 +36,22 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      if (file.name.endsWith('.pdf')) {
-        const pdfParser = new PDFParser(null, 1 as any);
-        extractedText = await new Promise((resolve, reject) => {
-          pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
-          pdfParser.on("pdfParser_dataReady", () => {
-             resolve(pdfParser.getRawTextContent());
-          });
-          pdfParser.parseBuffer(buffer);
-        }) as string;
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        const loadingTask = pdfjsLib.getDocument({
+          data: new Uint8Array(buffer),
+          useSystemFonts: true,
+          disableFontFace: true,
+        });
+        const doc = await loadingTask.promise;
+        let text = '';
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ') + '\\n';
+          page.cleanup(); // Free up layout memory
+        }
+        extractedText = text;
+        doc.destroy();
       } else if (file.name.endsWith('.docx')) {
         const result = await mammoth.extractRawText({ buffer });
         extractedText = result.value;
