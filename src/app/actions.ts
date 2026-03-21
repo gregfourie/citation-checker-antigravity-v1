@@ -44,7 +44,9 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
               for (let item of textContent.items) {
                  text += item.str + ' ';
               }
-              pageData.cleanup(); // Free up layout memory
+              if (typeof pageData.cleanup === 'function') {
+                 pageData.cleanup();
+              }
               return text + '\\n';
             }
           };
