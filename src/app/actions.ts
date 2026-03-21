@@ -1,14 +1,14 @@
 'use server'
 
-if (typeof global.DOMMatrix === 'undefined') {
-  (global as any).DOMMatrix = class DOMMatrix {};
+// Polyfills needed by pdfjs-dist in Node.js
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  (globalThis as any).DOMMatrix = class DOMMatrix {};
 }
-if (typeof global.DOMPoint === 'undefined') {
-  (global as any).DOMPoint = class DOMPoint {};
+if (typeof globalThis.DOMPoint === 'undefined') {
+  (globalThis as any).DOMPoint = class DOMPoint {};
 }
 
 import mammoth from 'mammoth';
-import PDFParser from 'pdf2json';
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
@@ -19,10 +19,62 @@ export interface ProcessedCitation extends CitationMatch {
   tier: ConfidenceTier | null;
 }
 
+/**
+ * Extract text from a PDF buffer using pdfjs-dist directly.
+ *
+ * Avoids pdf-parse which pulls in @napi-rs/canvas (a native addon that
+ * crashes on Vercel serverless). We only need text extraction, not rendering,
+ * so canvas is unnecessary.
+ */
+async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  // Dynamic import to avoid loading pdfjs-dist at module level
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+  const uint8Array = new Uint8Array(buffer);
+  const loadingTask = pdfjsLib.getDocument({
+    data: uint8Array,
+    useSystemFonts: true,
+    // Disable canvas — we only need text
+    disableFontFace: true,
+  });
+
+  const doc = await loadingTask.promise;
+  const textParts: string[] = [];
+
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+
+    let pageText = '';
+    let lastY: number | null = null;
+
+    for (const item of content.items) {
+      if ('str' in item) {
+        // Detect line breaks by checking Y-position changes
+        const currentY = (item as any).transform?.[5];
+        if (lastY !== null && currentY !== undefined && Math.abs(currentY - lastY) > 2) {
+          pageText += '\n';
+        }
+        pageText += item.str;
+        if (currentY !== undefined) {
+          lastY = currentY;
+        }
+      }
+    }
+
+    textParts.push(pageText);
+    page.cleanup();  // Release page resources to keep memory bounded
+  }
+
+  doc.destroy();
+  return textParts.join('\n');
+}
+
+
 export async function parseDocument(formData: FormData): Promise<{ text: string, citations: CitationMatch[], error?: string }> {
   try {
     let extractedText = '';
-    
+
     // Check if the user pasted text directly
     const textInput = formData.get('text') as string;
     if (textInput?.trim()) {
@@ -37,15 +89,10 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
 
       if (file.name.toLowerCase().endsWith('.pdf')) {
         try {
-          const text = await new Promise<string>((resolve, reject) => {
-            const pdfParser = new PDFParser(null, true);
-            pdfParser.on("pdfParser_dataError", (errData: any) => reject(new Error(errData.parserError)));
-            pdfParser.on("pdfParser_dataReady", () => resolve(pdfParser.getRawTextContent().replace(/----------------Page \\(\\d+\\) Break----------------/g, '\\n')));
-            pdfParser.parseBuffer(buffer);
-          });
-          extractedText = text;
+          extractedText = await extractTextFromPdf(buffer);
         } catch (err: any) {
-          return { text: '', citations: [], error: 'PDF Parsing failed: ' + (err.message || err.toString()) };
+          console.error('PDF parse error:', err);
+          return { text: '', citations: [], error: 'PDF parsing failed: ' + (err.message || err.toString()) };
         }
       } else if (file.name.endsWith('.docx')) {
         const result = await mammoth.extractRawText({ buffer });
@@ -72,11 +119,11 @@ export async function verifyCitations(citations: CitationMatch[]): Promise<Proce
 
   for (let i = 0; i < citations.length; i += concurrencyLimit) {
     const chunk = citations.slice(i, i + concurrencyLimit);
-    
+
     const chunkPromises = chunk.map(async (match, chunkIndex) => {
       const globalIndex = i + chunkIndex;
       const cacheKey = JSON.stringify({ type: match.type, data: match.data });
-      
+
       if (verificationCache.has(cacheKey)) {
         const cached = verificationCache.get(cacheKey)!;
         return { ...cached, id: `cit-${globalIndex}-${Date.now()}` } as ProcessedCitation;
@@ -84,25 +131,24 @@ export async function verifyCitations(citations: CitationMatch[]): Promise<Proce
 
       const safliiResult = await lookupCitation(match);
       const tier = classifyConfidence(safliiResult.status, safliiResult.match_confidence, safliiResult.found_via);
-      
+
       const processedCore = {
         ...match,
         result: safliiResult,
         tier
       };
-      
+
       verificationCache.set(cacheKey, processedCore);
       return { ...processedCore, id: `cit-${globalIndex}-${Date.now()}` } as ProcessedCitation;
     });
 
     const chunkResults = await Promise.all(chunkPromises);
     results.push(...chunkResults);
-    
-    // Brief delay between concurrent chunks to respect SAFLII limits
+
     if (i + concurrencyLimit < citations.length) {
       await new Promise(res => setTimeout(res, 500));
     }
   }
-  
+
   return results;
 }
