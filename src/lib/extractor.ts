@@ -51,6 +51,14 @@ export class CitationEngine {
         startIdx = i + 1;
         break;
       }
+      if (/^\(?\d+\)?$/.test(w)) {
+        startIdx = i + 1;
+        break;
+      }
+      if (/^\(?(?:BLLR|BCLR|SA|SACR|ILJ|All|ZACC|ZASCA|ZA[A-Z]+|CC|LAC|LC|SCA|HC|WLD|CPD|TPD|NPD|OPD|EPD|AD)\)?$/i.test(w)) {
+        startIdx = i + 1;
+        break;
+      }
     }
     
     while (startIdx < words.length) {

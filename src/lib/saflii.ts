@@ -207,7 +207,15 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
   
   query = query.replace(/\bv\.\s/g, 'v ');
   
-  let searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(query)}&method=all&results=20`;
+  const safeQuery = query.replace(/&/g, 'and')
+    .replace(/\b(and\s+another|and\s+others|et\s+al)\b/gi, '')
+    .replace(/\([^)]+\)/g, '')
+    .replace(/\[[^\]]+\]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  let searchUrl = `${SEARCH_URL}?query=${encodeURIComponent(safeQuery)}&method=all&results=20`;
   
   await delay(1000);
   let { status, html } = await fetchHtml(searchUrl);
