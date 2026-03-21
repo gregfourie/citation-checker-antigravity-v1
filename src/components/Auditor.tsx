@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ProcessedCitation, verifyCitations } from '@/app/actions';
 import { formatCitationDisplay } from '@/lib/extractor';
-import ScalesAnimation from './ScalesAnimation';
+import ImageCarousel from './ImageCarousel';
 
 interface AuditorProps {
   citations: ProcessedCitation[];
@@ -87,7 +87,7 @@ export default function Auditor({ citations, setCitations, onGenerateCertificate
       )}
 
       {isVerifying ? (
-        <ScalesAnimation />
+        <ImageCarousel />
       ) : citations.length > 0 ? (
          <table className="audit-table">
           <thead>

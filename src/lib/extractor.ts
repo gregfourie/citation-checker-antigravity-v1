@@ -1,5 +1,5 @@
 const NP = "[A-Za-z0-9\\s&()\\-',\u2018\u2019\u201C\u201D/]";
-const NPLIM = `(?:${NP}|\\.(?!\\s)){1,85}?`;
+const NPLIM = `(?:${NP}|\\.(?!\\s)){1,150}?`;
 
 export interface CitationMatch {
   type: string;
@@ -55,7 +55,12 @@ export class CitationEngine {
         startIdx = i + 1;
         break;
       }
-      if (/^\(?(?:BLLR|BCLR|SA|SACR|ILJ|All|ZACC|ZASCA|ZA[A-Z]+|CC|LAC|LC|SCA|HC|WLD|CPD|TPD|NPD|OPD|EPD|AD)\)?$/i.test(w)) {
+      if (/^\(?[A-Z]{1,4}\)?$/.test(w) && w.startsWith('(')) {
+        // pure uppercase abbr in parenthesis like (LC), (CC), (A)
+        startIdx = i + 1;
+        break;
+      }
+      if (/^\(?(?:BLLR|BCLR|SACR|ILJ|All|ZACC|ZASCA|ZA[A-Z]+)\)?$/i.test(w)) {
         startIdx = i + 1;
         break;
       }
@@ -78,7 +83,11 @@ export class CitationEngine {
     const found: CitationMatch[] = [];
     const seen = new Set<string>();
 
-    const normalizedText = text.replace(/[ \t]{2,}/g, ' ').replace(/([^\r\n])\r?\n([^\r\n])/g, '$1 $2');
+    const normalizedText = text
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/([^\r\n])\r?\n([^\r\n])/g, '$1 $2')
+      .replace(/(\b[A-Za-z]+)\s+([a-z]+-)/g, '$1$2')
+      .replace(/(\b[A-Za-z]+)-\s+([a-z])/g, '$1-$2');
     const lines = normalizedText.split('\n');
     const orderedKeys = [
       'standard_sa', 'bclr', 'sacr', 'all_sa', 'bllr', 'ilj', 'old_provincial',

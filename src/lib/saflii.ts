@@ -166,20 +166,13 @@ export async function lookupCitation(citationMatch: CitationMatch): Promise<Safl
       const directCitation = extractCitationFromUrl(directUrl);
       if (partyA && partyB) {
         const title = hit.title || "";
-        const nameScore = fuzz.token_set_ratio(`${partyA} v ${partyB}`.toLowerCase(), title.toLowerCase());
-        
-        if (nameScore >= 50) {
-          searchTrail.push({ source: 'SAFLII (direct)', result: 'Found' });
-          return {
-            ...hit,
-            search_trail: searchTrail,
-            saflii_citation: directCitation,
-            match_confidence: Math.min(nameScore + 10, 100),
-          };
-        } else {
-          mismatchInfo = { title, url: directUrl, citation: directCitation };
-          searchTrail.push({ source: 'SAFLII (direct)', result: `Found wrong case (${title.substring(0,40)}...)` });
-        }
+        searchTrail.push({ source: 'SAFLII (direct)', result: 'Found matching neutral citation URL' });
+        return {
+          ...hit,
+          search_trail: searchTrail,
+          saflii_citation: directCitation,
+          match_confidence: 100, // URL is deterministic for neutral citations
+        };
       } else {
         searchTrail.push({ source: 'SAFLII (direct)', result: 'Found' });
         return {

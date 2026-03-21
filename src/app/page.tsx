@@ -5,7 +5,7 @@ import { parseDocument, ProcessedCitation } from './actions';
 import Hopper from '@/components/Hopper';
 import Auditor from '@/components/Auditor';
 import Certificate from '@/components/Certificate';
-import ImageCarousel from '@/components/ImageCarousel';
+import ScalesAnimation from '@/components/ScalesAnimation';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState(1);
@@ -67,7 +67,7 @@ export default function Home() {
         
         <div style={{ display: activeTab === 1 ? 'block' : 'none' }}>
            <Hopper onExtract={handleExtract} isExtracting={isExtracting} />
-           <ImageCarousel />
+           <ScalesAnimation />
         </div>
         <div style={{ display: activeTab === 2 ? 'block' : 'none' }}>
            <Auditor citations={citations} setCitations={setCitations} onGenerateCertificate={handleGenerateCertificate} />
