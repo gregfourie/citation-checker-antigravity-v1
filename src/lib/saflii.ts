@@ -3,6 +3,8 @@ import * as cheerio from 'cheerio';
 import * as fuzz from 'fuzzball';
 import { CitationMatch, formatCitationDisplay } from './extractor';
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const PROXY_URL = 'https://script.google.com/macros/s/AKfycbzTelo_9-wPw2gp3Fzc1cuLcwG0KihoQ2Yxo1n4z388DQX3i-N00CpVFcj9CtAyB9Ag/exec?url=';
 const BASE_URL = 'https://www.saflii.org';
 const SEARCH_URL = 'https://www.saflii.org/cgi-bin/sinosrch-adw.cgi';
