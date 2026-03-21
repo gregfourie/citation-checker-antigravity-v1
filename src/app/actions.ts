@@ -30,8 +30,8 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   // Dynamic import to avoid loading pdfjs-dist at module level
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
-  // Disable web worker completely for Vercel
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  // Initialize fake worker cleanly via explicit Node resolution path
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
   const uint8Array = new Uint8Array(buffer);
   const loadingTask = pdfjsLib.getDocument({
