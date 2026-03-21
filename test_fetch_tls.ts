@@ -1,6 +1,9 @@
 import { lookupCitation } from './src/lib/saflii';
 import { CitationMatch } from './src/lib/extractor';
 
+// NOTE: NOT setting process.env.NODE_TLS_REJECT_UNAUTHORIZED
+// to see if it causes the exact "No results" behavior!
+
 const citationMatch: CitationMatch = {
   type: 'standard_sa',
   data: [

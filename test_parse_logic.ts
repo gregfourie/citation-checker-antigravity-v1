@@ -1,6 +1,8 @@
 import { lookupCitation } from './src/lib/saflii';
 import { CitationMatch } from './src/lib/extractor';
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const citationMatch: CitationMatch = {
   type: 'standard_sa',
   data: [

@@ -8,7 +8,7 @@ if (typeof global.DOMPoint === 'undefined') {
 }
 
 import mammoth from 'mammoth';
-const pdfParse = require('pdf-parse');
+import PDFParser from 'pdf2json';
 import { CitationEngine, CitationMatch } from '@/lib/extractor';
 import { lookupCitation, SafliiResult, classifyConfidence, ConfidenceTier } from '@/lib/saflii';
 
@@ -35,8 +35,14 @@ export async function parseDocument(formData: FormData): Promise<{ text: string,
       const buffer = Buffer.from(arrayBuffer);
 
       if (file.name.endsWith('.pdf')) {
-        const data = await pdfParse(buffer);
-        extractedText = data.text;
+        const pdfParser = new PDFParser(null, 1 as any);
+        extractedText = await new Promise((resolve, reject) => {
+          pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
+          pdfParser.on("pdfParser_dataReady", () => {
+             resolve(pdfParser.getRawTextContent());
+          });
+          pdfParser.parseBuffer(buffer);
+        }) as string;
       } else if (file.name.endsWith('.docx')) {
         const result = await mammoth.extractRawText({ buffer });
         extractedText = result.value;

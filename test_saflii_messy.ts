@@ -4,7 +4,7 @@ import { CitationMatch } from './src/lib/extractor';
 const citationMatch: CitationMatch = {
   type: 'standard_sa',
   data: [
-    'Independent Institute of Education (Pty) Ltd v KwaZulu-Natal Law Society and Others',
+    'The court said in Independent Institute of Education (Pty) Ltd v KwaZulu-Natal Law Society and Others',
     '2020',
     '2',
     '325',
