@@ -30,12 +30,18 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   // Dynamic import to avoid loading pdfjs-dist at module level
   const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
+  // Disable web worker completely for Vercel
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
   const uint8Array = new Uint8Array(buffer);
   const loadingTask = pdfjsLib.getDocument({
     data: uint8Array,
     useSystemFonts: true,
     // Disable canvas — we only need text
     disableFontFace: true,
+    // Disable worker entirely
+    isEvalSupported: false,
+    useWorkerFetch: false,
   });
 
   const doc = await loadingTask.promise;
